@@ -1,14 +1,14 @@
 # 项目架构
 
-- ./app.js 项目入口文件
-- ./routes
-  - index.js 一级路由
+- /app.js 项目入口文件
+- /routes
+  - /index.js 一级路由
   - /class 定义和数据库交互的对象模型
   - /modules 定义其他路由
   - /utils 开发常见的必要组件
   - /log 日志记录
 
-./swagger.js
+- /swagger.js
 
 # 运行项目
 

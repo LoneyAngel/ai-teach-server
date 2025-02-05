@@ -1,22 +1,19 @@
 /*
 和用户数据库进行交互的部分（直接交互）
 */
-const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
 const { ulid } = require("ulid");
 const User = require("../class/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { auth, jwt_secret } = require("../utils/jwt");
-
+const auth = require("../utils/jwt");
+const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
+const jwt_secret = process.env.JWT_SECRET;
 // 提取时间戳（登陆的时间）
 // const timestamp = ulid.decodeTime(id);
 // console.log("创建时间:", new Date(timestamp).toISOString());
 
-/*
- * 尽量数据库访问直接获取正确的信息
- */
 /**
  * @swagger
  * tags:
@@ -139,16 +136,26 @@ router.post("/login", async (req, res) => {
     // 验证密码
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: "Invalid account or password" });
     }
-    // 生成 JWT
-    const token = jwt.sign({ userId: user.id }, jwt_secret, {
-      expiresIn: "24h",
+
+    const accessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      expires: new Date(
+        Date.now() + parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN) * 1000
+      ),
     });
+
     console.log("token", token);
     res.json({
       message: "登录成功",
       data: user.toObject(),
+      token: accessToken,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -253,6 +260,44 @@ router.get("/getall", auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: "Error retrieving users" });
   }
+});
+
+//使用旧的refresh-token获取新的access-token和refresh-token(更安全)
+router.post("/refresh-token", async (req, res) => {
+  const { refreshToken } = req.body;
+
+  // 验证 Refresh Token 是否存在
+  const storedToken = await Token.findOne({
+    token: refreshToken,
+  });
+  if (!storedToken)
+    return res.status(403).json({ message: "Invalid refresh token" });
+
+  // 验证 Refresh Token 的有效期
+  if (new Date() > storedToken.expiresAt) {
+    await Token.findByIdAndDelete(storedToken._id);
+    return res.status(403).json({ message: "Refresh token expired" });
+  }
+
+  // 生成新的 Access Token 和 Refresh Token
+  const newAccessToken = generateAccessToken(storedToken);
+  const newRefreshToken = generateRefreshToken(storedToken);
+
+  // 更新 Refresh Token
+  storedToken.token = newRefreshToken;
+  storedToken.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await storedToken.save();
+
+  res.cookie("refreshToken", newRefreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    expires: new Date(
+      Date.now() + parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN) * 1000
+    ),
+  });
+
+  res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
 });
 
 module.exports = router;

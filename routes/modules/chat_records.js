@@ -8,7 +8,7 @@ const CR = require("../class/chat_record");
  * messages: 聊天记录
  * name: 此聊天记录的标识
  */
-async function hanshu(messages, name,ulid) {
+async function upload(messages, name,ulid) {
   try {
     // 查找是否存在该用户的聊天记录
     let chatRecord = await CR.findOne({ ulid });
@@ -46,6 +46,7 @@ async function hanshu(messages, name,ulid) {
       }
     }
 
+    
     // 保存聊天记录
     await chatRecord.save();
     return chatRecord;
@@ -55,4 +56,4 @@ async function hanshu(messages, name,ulid) {
   }
 }
 
-module.exports = hanshu;
+module.exports = upload;

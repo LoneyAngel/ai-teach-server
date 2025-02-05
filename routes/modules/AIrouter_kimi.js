@@ -4,17 +4,13 @@
 - kimi
 - deepseek
 - 其他的
-
-功能
-- 实现流式输出
-- 实现多轮对话
 */
 const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
 const express = require("express");
 const router = express.Router();
-const hanshu = require("../modules/chat_records");
+const upload = require("./modules/chat_records");
 
 const client = new OpenAI({
   apiKey: process.env.API_KEY, // 使用环境变量存储API密钥
@@ -34,6 +30,7 @@ let messages = [
  * 实现：上下文记忆
  *  */
 async function no_stream_output(input,record_name) {
+  //测试用ulid,注意不是_id
   const ulid = "01JJVV15WJM5WAVPWJSBXDZR93";
   
   try {
@@ -52,7 +49,7 @@ async function no_stream_output(input,record_name) {
     const assistantMessage = completion.choices[0].message;
     messages.push(assistantMessage);
     //进行聊天记录的保存,从前端获取当前窗口的标识
-    hanshu(
+    upload(
       [
         {
           role: "user",
@@ -60,7 +57,8 @@ async function no_stream_output(input,record_name) {
         },
         assistantMessage,
       ],
-      record_name,ulid
+      record_name,
+      ulid
     );
     return assistantMessage.content;
   } catch (error) {
@@ -108,7 +106,7 @@ async function stream_output(input, res,record_name) {
       role: "assistant",
       content: message,
     });
-    hanshu(
+    upload(
       [
         {
           role: "user",
@@ -166,10 +164,32 @@ async function workForPdfToMarkdown(filePath, message = "解释内容") {
   }
 }
 
-//什么时候将聊天记录进行保存
-//聊天记录模型
-//时间，用户，记录
-
+/**
+ * @swagger
+ * /stream/{message}:
+ *   get:
+ *     summary: Stream chat response from AI
+ *     description: Stream chat response from AI with the given message
+ *     parameters:
+ *       - in: path
+ *         name: message
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The message to send to the AI
+ *     responses:
+ *       '200':
+ *         description: A stream of chat messages
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: string
+ *       '500':
+ *         description: Internal Server Error
+ */
 router.get("/stream/:message", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -183,6 +203,29 @@ router.get("/stream/:message", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/{message}:
+ *   get:
+ *     summary: Get chat response from AI
+ *     description: Get chat response from AI with the given message
+ *     parameters:
+ *       - in: path
+ *         name: message
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The message to send to the AI
+ *     responses:
+ *       '200':
+ *         description: Chat response from AI
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       '500':
+ *         description: Internal Server Error
+ */
 router.get("/api/:message", async (req, res) => {
   const message = req.params.message;
   // const record_name = req.params.record_name;

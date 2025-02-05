@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 //使用id属性作为检索，使用uid来对用户进行明面上的安全标识
 //时间倒序
 const userSchema = new mongoose.Schema({
-  ulid: {
+  ulid: {//用户id候补,一般直接使用_id
     type: String,
     required: true,
     unique: true,

@@ -52,6 +52,30 @@ const options = {
           },
           required: ["name"],
         },
+        ChatMessage: {
+          type: "object",
+          properties: {
+            role: {
+              type: "string",
+              description: "Role of the message sender (user or assistant)",
+            },
+            content: {
+              type: "string",
+              description: "Content of the message",
+            },
+          },
+          required: ["role", "content"],
+        },
+        ChatResponse: {
+          type: "object",
+          properties: {
+            data: {
+              type: "string",
+              description: "Response message from the AI",
+            },
+          },
+          required: ["data"],
+        },
       },
       securitySchemes: {
         bearerAuth: {
