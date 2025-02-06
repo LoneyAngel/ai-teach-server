@@ -7,9 +7,13 @@ const { ulid } = require("ulid");
 const User = require("../class/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const auth = require("../utils/jwt");
-const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
-const jwt_secret = process.env.JWT_SECRET;
+const {
+  auth,
+  generateRefreshToken,
+  generateAccessToken,
+  refresh_token_exist,
+} = require("../utils/jwt");
+const jwt_secret = process.env.ACCESS_SECRET;
 // 提取时间戳（登陆的时间）
 // const timestamp = ulid.decodeTime(id);
 // console.log("创建时间:", new Date(timestamp).toISOString());
@@ -126,6 +130,13 @@ router.post("/register", async (req, res) => {
 // 登录
 router.post("/login", async (req, res) => {
   try {
+    const accessToken = await refresh_token_exist(req);
+    if (accessToken) {
+      res.json({
+        message: "登录成功",
+        accessToken: accessToken,
+      });
+    }
     const { account, password } = req.query;
     console.log(account, password);
     const user = await User.findOne({ account });
@@ -139,8 +150,8 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid account or password" });
     }
 
-    const accessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
+    const accessToken = await generateAccessToken(user);
+    const newRefreshToken = await generateRefreshToken(storedToken);
 
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
@@ -151,11 +162,12 @@ router.post("/login", async (req, res) => {
       ),
     });
 
-    console.log("token", token);
     res.json({
       message: "登录成功",
-      data: user.toObject(),
-      token: accessToken,
+      data: user,
+      token: {
+        accessToken: accessToken,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -186,12 +198,11 @@ router.post("/login", async (req, res) => {
 router.get("/me", auth, async (req, res) => {
   try {
     console.log("Authorization header:", req.headers.authorization);
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      console.error("Authorization header missing");
-      return res.status(401).json({ message: "Authorization header missing" });
-    }
+    // const authHeader = req.headers.authorization;
+    // if (!authHeader) {
+    //   console.error("Authorization header missing");
+    //   return res.status(401).json({ message: "Authorization header missing" });
+    // }
 
     const userId = req.user.userId;
     if (!userId) {
@@ -208,6 +219,7 @@ router.get("/me", auth, async (req, res) => {
     }
 
     res.json({
+      message: "User information retrieved successfully",
       data: user,
     });
   } catch (err) {

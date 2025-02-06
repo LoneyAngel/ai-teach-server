@@ -10,7 +10,7 @@ const path = require("path");
 const OpenAI = require("openai");
 const express = require("express");
 const router = express.Router();
-const upload = require("./modules/chat_records");
+const upload = require("./chat_records");
 
 const client = new OpenAI({
   apiKey: process.env.API_KEY, // 使用环境变量存储API密钥
